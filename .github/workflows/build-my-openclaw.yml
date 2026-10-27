@@ -1,9 +1,14 @@
 name: Build my OpenClaw
 
 # Runs ONLY when you click "Run workflow" in the Actions tab.
-# Nothing changes on its own.
+# Nothing changes on its own. You choose which stable version to build.
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Stable version to build (example: v2026.9.34)"
+        required: true
+        default: "v2026.9.34"
 
 permissions:
   contents: read
@@ -22,6 +27,18 @@ jobs:
 
       - name: Get my code
         uses: actions/checkout@v4
+
+      - name: Switch to the chosen stable version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -e
+          if ! git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            git fetch --depth=1 origin "refs/tags/$VERSION:refs/tags/$VERSION" || \
+            git fetch --depth=1 https://github.com/openclaw/openclaw.git "refs/tags/$VERSION:refs/tags/$VERSION"
+          fi
+          git checkout --force "$VERSION"
+          git log -1 --oneline
 
       - name: Set up Docker builder
         uses: docker/setup-buildx-action@v3
@@ -42,4 +59,4 @@ jobs:
             OPENCLAW_INSTALL_BROWSER=1
           tags: |
             ghcr.io/${{ github.repository_owner }}/openclaw:mine
-            ghcr.io/${{ github.repository_owner }}/openclaw:mine-${{ github.run_number }}
+            ghcr.io/${{ github.repository_owner }}/openclaw:mine-${{ github.event.inputs.version }}
